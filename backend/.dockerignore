@@ -1,0 +1,25 @@
+# Bỏ thư mục node_modules để tránh copy vào container
+node_modules
+
+# Bỏ file môi trường (sẽ được truyền qua docker-compose hoặc env_file)
+.env
+
+# Bỏ các file log, debug
+*.log
+npm-debug.log*
+
+# Bỏ thư mục tạm / build (nếu có)
+dist
+tmp
+.cache
+
+# Bỏ các file hệ thống không cần thiết
+.DS_Store
+Thumbs.db
+
+# Bỏ Git và các file cấu hình không cần trong container
+.git
+.gitignore
+.vscode
+.idea
+

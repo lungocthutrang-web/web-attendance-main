@@ -1,0 +1,93 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: web-attendance-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${MYSQL_PORT}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - my-network
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  flask:
+    build:
+      context: ./flask_server
+    container_name: web-attendance-flask
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      FLASK_PORT: ${FLASK_PORT}
+    # Chỉ cần nội bộ docker network
+    expose:
+      - "5001"
+    volumes:
+      - ./flask_server/uploads:/app/uploads
+      - ./flask_server/models:/app/models
+      - ./flask_server/dataset:/app/dataset
+    networks:
+      - my-network
+
+  backend:
+    build:
+      context: ./backend
+    container_name: web-attendance-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      FLASK_URL: ${FLASK_URL}
+      TZ: Asia/Ho_Chi_Minh
+
+    ports:
+      - "5050:5050"
+
+    # ✅ QUAN TRỌNG: mount uploads ra host để rebuild không mất ảnh
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+      flask:
+        condition: service_started
+    networks:
+      - my-network
+      
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: web-attendance-frontend
+    restart: unless-stopped
+    ports:
+      - "3003:80"
+    depends_on:
+      - backend
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
